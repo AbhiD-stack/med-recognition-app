@@ -5,35 +5,31 @@ let ort: typeof import('onnxruntime-web') | null = null;
 const HF_BASE = "https://huggingface.co/AbhiD123/pill-id-v2/resolve/main";
 const LOCAL_BASE = "/model";
 
-async function fetchWithFallback<T>(filename: string, parser: "json" | "arrayBuffer" | "session", sessionOptions?: any): Promise<T> {
+async function fetchWithFallback<T>(filename: string, parser: "json" | "session", sessionOptions?: any): Promise<T> {
   try {
     const localRes = await fetch(`${LOCAL_BASE}/${filename}`);
     if (localRes.ok) {
       if (parser === "json") return await localRes.json();
-      if (parser === "arrayBuffer") return (await localRes.arrayBuffer()) as unknown as T;
       if (parser === "session" && ort) {
-        const buf = await localRes.arrayBuffer();
-        return (await ort.InferenceSession.create(buf, sessionOptions)) as unknown as T;
+        // Pass the URL string directly instead of arrayBuffer to prevent "e.replace is not a function" and out-of-memory errors
+        return (await ort.InferenceSession.create(`${LOCAL_BASE}/${filename}`, sessionOptions)) as unknown as T;
       }
     }
   } catch (e) {}
 
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const response = await fetch(`${HF_BASE}/${filename}`);
-      if (response.ok) {
-        if (parser === "json") return await response.json();
-        if (parser === "arrayBuffer") return (await response.arrayBuffer()) as unknown as T;
-        if (parser === "session" && ort) {
-          const buf = await response.arrayBuffer();
-          return (await ort.InferenceSession.create(buf, sessionOptions)) as unknown as T;
+      if (parser === "json") {
+        const response = await fetch(`${HF_BASE}/${filename}`);
+        if (response.ok) return await response.json();
+        if (response.status === 429) {
+          await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+          continue;
         }
+      } else if (parser === "session" && ort) {
+        // Pass the Hugging Face URL string directly to InferenceSession.create
+        return (await ort.InferenceSession.create(`${HF_BASE}/${filename}`, sessionOptions)) as unknown as T;
       }
-      if (response.status === 429) {
-        await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
-        continue;
-      }
-      throw new Error(`Failed to fetch ${filename}: ${response.status}`);
     } catch (err) {
       if (attempt === 2) throw err;
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -98,7 +94,6 @@ export function loadModel(onProgress?: (msg: string) => void): Promise<void> {
     onProgress?.("Downloading configs, labels, and embeddings...");
     const t0 = performance.now();
     
-    // Parallelize metadata and reference file downloads
     const [cfg, labels, bank, filenames, names] = await Promise.all([
       fetchWithFallback<InferenceConfig>("inference_config.json", "json"),
       fetchWithFallback<LabelMap>("labels.json", "json"),
@@ -121,7 +116,6 @@ export function loadModel(onProgress?: (msg: string) => void): Promise<void> {
     onProgress?.("Downloading and compiling ONNX model weights...");
     const t5 = performance.now();
 
-    // Parallelize large ONNX model session creation
     [backboneSession, headAugSession, headLoraSession] = await Promise.all([
       fetchWithFallback<any>("backbone.onnx", "session", { executionProviders: ['wasm'] }),
       fetchWithFallback<any>("head_aug.onnx", "session", { executionProviders: ['wasm'] }),

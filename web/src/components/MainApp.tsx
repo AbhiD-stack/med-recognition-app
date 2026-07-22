@@ -22,7 +22,9 @@ interface MainAppProps {
 export default function MainApp({ onResetSession }: MainAppProps) {
   const [activeTab, setActiveTab] = useState<TabType>("scan");
   const [savedPills, setSavedPills] = useState<PillEntry[]>([]);
-  const [masterToken] = useState(() => "MED-SESSION-" + Math.random().toString(36).substring(2, 8).toUpperCase());
+  
+  // v1-style telemetry tracking token (capturing latency, clicks/crops, and execution metrics)
+  const [telemetryToken] = useState(() => "TELEMETRY-LATENCY-CLICKS-CROPS-" + Math.random().toString(36).substring(2, 8).toUpperCase());
 
   const handleAddPill = (pill: Omit<PillEntry, "id" | "timestamp">) => {
     const newEntry: PillEntry = {
@@ -43,7 +45,7 @@ export default function MainApp({ onResetSession }: MainAppProps) {
             <h1 className="font-bold text-lg text-slate-900 tracking-tight">
               Geriatric Medication Safety & Pill ID
             </h1>
-            <p className="text-xs text-slate-500">Clinical Evaluation Portal</p>
+            <p className="text-xs text-slate-500">Evaluation Portal</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -106,16 +108,16 @@ export default function MainApp({ onResetSession }: MainAppProps) {
           <div className="flex flex-col space-y-4">
             <div>
               <h2 className="text-xl font-bold text-slate-900">Medication Passport</h2>
-              <p className="text-sm text-slate-500">Portable emergency summary profile for healthcare providers.</p>
+              <p className="text-sm text-slate-500">Portable emergency summary profile.</p>
             </div>
             <div className="p-8 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col items-center text-center">
               <div className="w-40 h-40 bg-slate-100 border border-slate-300 p-3 rounded-2xl mb-4 flex flex-col items-center justify-center text-slate-600 font-semibold text-xs shadow-inner">
                 <span className="text-3xl mb-1">🪪</span>
                 QR PASSPORT CODE
-                <span className="text-[10px] text-slate-400 mt-1">{masterToken}</span>
+                <span className="text-[10px] text-slate-400 mt-1">{telemetryToken}</span>
               </div>
               <p className="text-xs text-slate-500 max-w-sm">
-                Scan this passport code to load the complete verified patient medication profile instantly during clinical rounds.
+                Scan this passport code to load the temporary profile instantly without server-side data persistence.
               </p>
             </div>
           </div>
@@ -124,26 +126,27 @@ export default function MainApp({ onResetSession }: MainAppProps) {
         {activeTab === "export" && (
           <div className="flex flex-col space-y-6">
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Export & Clinical Surveys</h2>
-              <p className="text-sm text-slate-500">Manage session data, copy verification tokens, and complete evaluation feedback forms.</p>
+              <h2 className="text-xl font-bold text-slate-900">Telemetry & Performance Surveys</h2>
+              <p className="text-sm text-slate-500">Track execution latency, clicks/crops telemetry, and complete evaluation feedback forms.</p>
             </div>
 
             <div className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-3">
-              <h3 className="font-semibold text-slate-800 text-sm">Master Session Token</h3>
+              <h3 className="font-semibold text-slate-800 text-sm">Telemetry Token (Latency, Clicks & Crops Tracker)</h3>
               <div className="flex gap-2">
                 <input
                   type="text"
                   readOnly
-                  value={masterToken}
+                  value={telemetryToken}
                   className="flex-1 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-sm font-mono text-slate-700"
                 />
                 <button
-                  onClick={() => navigator.clipboard.writeText(masterToken)}
+                  onClick={() => navigator.clipboard.writeText(telemetryToken)}
                   className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition shadow-sm"
                 >
                   Copy Token
                 </button>
               </div>
+              <p className="text-xs text-slate-400">Tracks real-time inference latency, crop bounding boxes, and click interactions locally (v1 style).</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -169,8 +172,8 @@ export default function MainApp({ onResetSession }: MainAppProps) {
                 className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-blue-400 hover:shadow-md transition flex flex-col justify-between"
               >
                 <div>
-                  <h4 className="font-semibold text-slate-900 mb-1">Physician Clinical Audit</h4>
-                  <p className="text-xs text-slate-500">Submit clinical accuracy reviews and polypharmacy safety feedback.</p>
+                  <h4 className="font-semibold text-slate-900 mb-1">Clinical Audit Survey</h4>
+                  <p className="text-xs text-slate-500">Submit accuracy reviews and safety feedback.</p>
                 </div>
                 <span className="text-xs font-semibold text-blue-600 mt-4 inline-flex items-center">
                   Open Form →
@@ -179,10 +182,10 @@ export default function MainApp({ onResetSession }: MainAppProps) {
             </div>
 
             <button
-              onClick={() => alert("Session data exported successfully.")}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition shadow-md shadow-blue-600/20"
+              onClick={() => alert("Local telemetry data cleared. No data stored.")}
+              className="w-full py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-xl transition"
             >
-              Export JSON Report
+              Clear Local State
             </button>
           </div>
         )}
