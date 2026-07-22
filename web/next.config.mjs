@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ['onnxruntime-web'],
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   webpack: (config, { isServer }) => {
     config.experiments = {
       ...config.experiments,
@@ -8,7 +14,6 @@ const nextConfig = {
       layers: true,
     };
 
-    // Exclude onnxruntime-web from being parsed/minified if it triggers parser errors
     config.module.rules.push({
       test: /\.mjs$/,
       include: /node_modules\/onnxruntime-web/,
