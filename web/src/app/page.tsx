@@ -1,7 +1,5 @@
 "use client";
 
-export const dynamic = 'force-dynamic';
-
 import dynamic from 'next/dynamic';
 
 const MainApp = dynamic(() => import('@/components/MainApp'), {
