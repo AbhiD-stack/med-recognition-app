@@ -1,8 +1,10 @@
 "use client";
 
 
-import * as ort from "onnxruntime-web/wasm";
+import * as ort from 'onnxruntime-web';
 
+// Point WASM files to a reliable CDN to avoid missing binary errors on deployment
+ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@${ort.version}/dist/';
 
 const LOCAL_BASE = "/model";
 export const MODEL_BASE = LOCAL_BASE;
