@@ -8,11 +8,9 @@ let inferenceSession: ort.InferenceSession | null = null;
 export async function getModelSession() {
   if (inferenceSession) return inferenceSession;
 
-  // Configure WASM paths safely for client browser runtime
-  ort.env.wasm.wasmPaths = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ort.version}/dist/`;
+  // Use a hardcoded version string instead of ort.version
+  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/';
 
-  // Initialize your ONNX model session here
-  // inferenceSession = await ort.InferenceSession.create('/model.onnx');
   return inferenceSession;
 }
 
