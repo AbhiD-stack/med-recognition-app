@@ -2,6 +2,21 @@
 
 export const dynamic = 'force-dynamic';
 
+import dynamic from 'next/dynamic';
+
+const Scanner = dynamic(() => import('@/components/Scanner'), {
+  ssr: false,
+  loading: () => (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'sans-serif' }}>
+      <h2>Loading Pill Recognition System...</h2>
+    </div>
+  ),
+});
+
+export default function Page() {
+  return <Scanner />;
+}
+
 import { useState } from "react";
 import Nav from "@/components/Nav";
 import Scanner from "@/components/Scanner";
