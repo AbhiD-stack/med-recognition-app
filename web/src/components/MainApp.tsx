@@ -2,8 +2,6 @@
 
 import React, { useState } from "react";
 import Scanner from "@/components/Scanner";
-// Add or adjust imports based on your component filenames
-// If your components are inline or in separate files, import them accordingly.
 
 type TabType = "scan" | "schedule" | "safety" | "passport" | "export";
 
@@ -28,7 +26,7 @@ export default function MainApp({ onResetSession }: MainAppProps) {
   const handleAddPill = (pill: Omit<PillEntry, "id" | "timestamp">) => {
     const newEntry: PillEntry = {
       ...pill,
-      id: Math.random().toString(36.substring(2, 9)),
+      id: Math.random().toString(36).substring(2, 9),
       timestamp: Date.now(),
     };
     setSavedPills((prev) => [newEntry, ...prev]);
