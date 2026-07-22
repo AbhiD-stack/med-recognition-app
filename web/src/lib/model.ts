@@ -3,9 +3,49 @@
 let ort: typeof import('onnxruntime-web') | null = null;
 
 const HF_BASE = "https://huggingface.co/AbhiD123/pill-id-v2/resolve/main";
+// Point to the local folder in public/model
+const LOCAL_BASE = "/model";
 
-function getBaseUrl(): string {
-  return HF_BASE;
+// Helper to check if local files exist, otherwise fallback to HF
+async function fetchWithFallback<T>(filename: string, parser: "json" | "arrayBuffer" | "session", sessionOptions?: any): Promise<T> {
+  // 1. Try local public folder first (super fast)
+  try {
+    const localRes = await fetch(`${LOCAL_BASE}/${filename}`);
+    if (localRes.ok) {
+      if (parser === "json") return await localRes.json();
+      if (parser === "arrayBuffer") return (await localRes.arrayBuffer()) as unknown as T;
+      if (parser === "session" && ort) {
+        const buf = await localRes.arrayBuffer();
+        return (await ort.InferenceSession.create(buf, sessionOptions)) as unknown as T;
+      }
+    }
+  } catch (e) {
+    // Local fetch failed, proceed to fallback
+  }
+
+  // 2. Fallback to Hugging Face URL with retry logic
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const response = await fetch(`${HF_BASE}/${filename}`);
+      if (response.ok) {
+        if (parser === "json") return await response.json();
+        if (parser === "arrayBuffer") return (await response.arrayBuffer()) as unknown as T;
+        if (parser === "session" && ort) {
+          const buf = await response.arrayBuffer();
+          return (await ort.InferenceSession.create(buf, sessionOptions)) as unknown as T;
+        }
+      }
+      if (response.status === 429) {
+        await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+        continue;
+      }
+      throw new Error(`Failed to fetch ${filename}: ${response.status}`);
+    } catch (err) {
+      if (attempt === 2) throw err;
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+  throw new Error(`Failed to fetch ${filename} after 3 attempts`);
 }
 
 type InferenceConfig = {
@@ -48,24 +88,6 @@ let drugNameMap: DrugNameMap | null = null;
 let loadingPromise: Promise<void> | null = null;
 let loadTimings: Record<string, number> = {};
 
-async function fetchJson<T>(url: string): Promise<T> {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const response = await fetch(url);
-      if (response.ok) return await response.json();
-      if (response.status === 429) {
-        await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
-        continue;
-      }
-      throw new Error(`Failed to fetch ${url}: ${response.status}`);
-    } catch (err) {
-      if (attempt === 2) throw err;
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-  }
-  throw new Error(`Failed to fetch ${url} after 3 attempts`);
-}
-
 export function loadModel(onProgress?: (msg: string) => void): Promise<void> {
   if (loadingPromise) return loadingPromise;
 
@@ -76,45 +98,44 @@ export function loadModel(onProgress?: (msg: string) => void): Promise<void> {
       onProgress?.("Initializing ONNX runtime...");
       ort = await import('onnxruntime-web');
       ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/";
-      // Force single-threaded execution to prevent hanging/freezing in browser environments
       ort.env.wasm.numThreads = 1;
     }
 
-    onProgress?.("Downloading inference config...");
+    onProgress?.("Loading inference config...");
     const t0 = performance.now();
-    config = await fetchJson<InferenceConfig>(`${getBaseUrl()}/inference_config.json`);
+    config = await fetchWithFallback<InferenceConfig>("inference_config.json", "json");
     
     if (config && (!config.n_tta_views || config.n_tta_views > 1)) {
       config.n_tta_views = 1;
     }
     loadTimings["inference_config_ms"] = Math.round(performance.now() - t0);
 
-    onProgress?.("Downloading label map...");
+    onProgress?.("Loading label map...");
     const t1 = performance.now();
-    labelMap = await fetchJson<LabelMap>(`${getBaseUrl()}/labels.json`);
+    labelMap = await fetchWithFallback<LabelMap>("labels.json", "json");
     loadTimings["labels_ms"] = Math.round(performance.now() - t1);
 
-    onProgress?.("Downloading reference embeddings...");
+    onProgress?.("Loading reference embeddings...");
     const t3 = performance.now();
-    refBank = await fetchJson<ReferenceBank>(`${getBaseUrl()}/reference_embeddings.json`);
+    refBank = await fetchWithFallback<ReferenceBank>("reference_embeddings.json", "json");
     loadTimings["reference_embeddings_ms"] = Math.round(performance.now() - t3);
 
     try {
-      refFilenames = await fetchJson<Record<string, string>>(`${HF_BASE}/reference_filenames.json`);
+      refFilenames = await fetchWithFallback<Record<string, string>>("reference_filenames.json", "json");
     } catch (e) {
       refFilenames = {};
     }
 
     try {
-      drugNameMap = await fetchJson<DrugNameMap>(`${HF_BASE}/ndc_names.json`);
+      drugNameMap = await fetchWithFallback<DrugNameMap>("ndc_names.json", "json");
     } catch (e) {
       drugNameMap = {};
     }
 
-    onProgress?.("Loading vision backbone from Hugging Face...");
+    onProgress?.("Loading vision backbone model...");
     const t5 = performance.now();
     try {
-      backboneSession = await ort.InferenceSession.create(`${getBaseUrl()}/backbone.onnx`, { executionProviders: ['wasm'] });
+      backboneSession = await fetchWithFallback<any>("backbone.onnx", "session", { executionProviders: ['wasm'] });
       loadTimings["backbone_load_ms"] = Math.round(performance.now() - t5);
     } catch (err) {
       console.error("Failed to load backbone:", err);
@@ -124,8 +145,8 @@ export function loadModel(onProgress?: (msg: string) => void): Promise<void> {
 
     onProgress?.("Loading projection heads...");
     const t6 = performance.now();
-    headAugSession = await ort.InferenceSession.create(`${getBaseUrl()}/head_aug.onnx`, { executionProviders: ['wasm'] });
-    headLoraSession = await ort.InferenceSession.create(`${getBaseUrl()}/head_lora.onnx`, { executionProviders: ['wasm'] });
+    headAugSession = await fetchWithFallback<any>("head_aug.onnx", "session", { executionProviders: ['wasm'] });
+    headLoraSession = await fetchWithFallback<any>("head_lora.onnx", "session", { executionProviders: ['wasm'] });
     loadTimings["heads_load_ms"] = Math.round(performance.now() - t6);
 
     loadTimings["total_load_ms"] = Math.round(performance.now() - startAll);
@@ -304,7 +325,7 @@ export async function identifyPill(
 
 export function getReferenceUrl(label_idx: number, label_str?: string) {
   if (label_str && (label_str.includes(".jpg") || label_str.includes(".png") || label_str.includes("/"))) {
-    return `${getBaseUrl()}/${label_str}`;
+    return `${HF_BASE}/${label_str}`;
   }
 
   const filename = refFilenames?.[String(label_idx)];
