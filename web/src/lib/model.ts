@@ -3,39 +3,23 @@
 let ort: typeof import('onnxruntime-web') | null = null;
 
 const HF_BASE = "https://huggingface.co/AbhiD123/pill-id-v2/resolve/main";
-const LOCAL_BASE = "/model";
 
-async function fetchWithFallback<T>(filename: string, parser: "json" | "session", sessionOptions?: any): Promise<T> {
-  try {
-    const localRes = await fetch(`${LOCAL_BASE}/${filename}`);
-    if (localRes.ok) {
-      if (parser === "json") return await localRes.json();
-      if (parser === "session" && ort) {
-        // Pass the URL string directly instead of arrayBuffer to prevent "e.replace is not a function" and out-of-memory errors
-        return (await ort.InferenceSession.create(`${LOCAL_BASE}/${filename}`, sessionOptions)) as unknown as T;
-      }
-    }
-  } catch (e) {}
-
+async function fetchJson<T>(url: string): Promise<T> {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      if (parser === "json") {
-        const response = await fetch(`${HF_BASE}/${filename}`);
-        if (response.ok) return await response.json();
-        if (response.status === 429) {
-          await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
-          continue;
-        }
-      } else if (parser === "session" && ort) {
-        // Pass the Hugging Face URL string directly to InferenceSession.create
-        return (await ort.InferenceSession.create(`${HF_BASE}/${filename}`, sessionOptions)) as unknown as T;
+      const response = await fetch(url);
+      if (response.ok) return await response.json();
+      if (response.status === 429) {
+        await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+        continue;
       }
+      throw new Error(`Failed to fetch ${url}: ${response.status}`);
     } catch (err) {
       if (attempt === 2) throw err;
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
-  throw new Error(`Failed to fetch ${filename} after 3 attempts`);
+  throw new Error(`Failed to fetch ${url} after 3 attempts`);
 }
 
 type InferenceConfig = {
@@ -95,11 +79,11 @@ export function loadModel(onProgress?: (msg: string) => void): Promise<void> {
     const t0 = performance.now();
     
     const [cfg, labels, bank, filenames, names] = await Promise.all([
-      fetchWithFallback<InferenceConfig>("inference_config.json", "json"),
-      fetchWithFallback<LabelMap>("labels.json", "json"),
-      fetchWithFallback<ReferenceBank>("reference_embeddings.json", "json"),
-      fetchWithFallback<Record<string, string>>("reference_filenames.json", "json").catch(() => ({})),
-      fetchWithFallback<DrugNameMap>("ndc_names.json", "json").catch(() => ({}))
+      fetchJson<InferenceConfig>(`${HF_BASE}/inference_config.json`),
+      fetchJson<LabelMap>(`${HF_BASE}/labels.json`),
+      fetchJson<ReferenceBank>(`${HF_BASE}/reference_embeddings.json`),
+      fetchJson<Record<string, string>>(`${HF_BASE}/reference_filenames.json`).catch(() => ({})),
+      fetchJson<DrugNameMap>(`${HF_BASE}/ndc_names.json`).catch(() => ({}))
     ]);
 
     config = cfg;
@@ -116,10 +100,11 @@ export function loadModel(onProgress?: (msg: string) => void): Promise<void> {
     onProgress?.("Downloading and compiling ONNX model weights...");
     const t5 = performance.now();
 
+    // Pass valid string URLs directly to InferenceSession.create to prevent replace errors
     [backboneSession, headAugSession, headLoraSession] = await Promise.all([
-      fetchWithFallback<any>("backbone.onnx", "session", { executionProviders: ['wasm'] }),
-      fetchWithFallback<any>("head_aug.onnx", "session", { executionProviders: ['wasm'] }),
-      fetchWithFallback<any>("head_lora.onnx", "session", { executionProviders: ['wasm'] })
+      ort.InferenceSession.create(`${HF_BASE}/backbone.onnx`, { executionProviders: ['wasm'] }),
+      ort.InferenceSession.create(`${HF_BASE}/head_aug.onnx`, { executionProviders: ['wasm'] }),
+      ort.InferenceSession.create(`${HF_BASE}/head_lora.onnx`, { executionProviders: ['wasm'] })
     ]);
 
     loadTimings["onnx_models_load_ms"] = Math.round(performance.now() - t5);
