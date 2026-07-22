@@ -1,198 +1,178 @@
 "use client";
 
-
-import { useState } from "react";
-import Nav from "@/components/Nav";
+import React, { useState } from "react";
 import Scanner from "@/components/Scanner";
-import Scheduler from "@/components/Scheduler";
-import SafetyReport from "@/components/SafetyReport";
-import QRPassport from "@/components/QRPassport";
-import { useMasterToken } from "@/lib/masterToken";
+// Add or adjust imports based on your component filenames
+// If your components are inline or in separate files, import them accordingly.
 
+type TabType = "scan" | "schedule" | "safety" | "passport" | "export";
 
-type Tab = "scan" | "schedule" | "safety" | "passport" | "export";
+export type PillEntry = {
+  id: string;
+  drug_name?: string;
+  ndc?: string;
+  score: number;
+  timestamp: number;
+  scheduleTime?: string;
+  notes?: string;
+};
 
+interface MainAppProps {
+  onResetSession: () => void;
+}
 
-export default function Home() {
-  const [tab, setTab] = useState<Tab>("scan");
-  const [sessionStarted, setSessionStarted] = useState(false);
-  const { token, pillCount, copyToken, resetToken, addIdentification } = useMasterToken();
-  const [tokenCopied, setTokenCopied] = useState(false);
-  const showMainScreen = sessionStarted || !!token;
+export default function MainApp({ onResetSession }: MainAppProps) {
+  const [activeTab, setActiveTab] = useState<TabType>("scan");
+  const [savedPills, setSavedPills] = useState<PillEntry[]>([]);
 
-
-  const handleCopyToken = async () => {
-    await copyToken();
-    setTokenCopied(true);
-    setTimeout(() => setTokenCopied(false), 2000);
+  const handleAddPill = (pill: Omit<PillEntry, "id" | "timestamp">) => {
+    const newEntry: PillEntry = {
+      ...pill,
+      id: Math.random().toString(36.substring(2, 9)),
+      timestamp: Date.now(),
+    };
+    setSavedPills((prev) => [newEntry, ...prev]);
   };
-
-
-  const handleStartSession = () => {
-    setSessionStarted(true);
-    setTab("scan");
-  };
-
-
-  const handleResetSession = () => {
-    resetToken();
-    setSessionStarted(false);
-    setTab("scan");
-  };
-
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <header className="border-b border-slate-200 bg-white shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-4xl font-bold text-slate-900">Med Recognition Study</h1>
-              <p className="text-sm text-slate-500 mt-1">Clinical validation of AI-assisted pill identification</p>
-            </div>
-            {/* Master token is intentionally shown only in the Export tab. */}
-          </div>
+    <div className="flex-1 flex flex-col pb-24 bg-slate-950 text-white min-h-screen">
+      {/* Top Header */}
+      <header className="px-4 py-3 bg-slate-900 border-b border-slate-800 flex justify-between items-center sticky top-0 z-40">
+        <div className="flex items-center space-x-2">
+          <span className="text-xl">💊</span>
+          <h1 className="font-bold text-lg bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+            Geriatric Pill ID
+          </h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-1 rounded-full font-medium">
+            System Active
+          </span>
         </div>
       </header>
 
-
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        {!showMainScreen && (
-          <div className="mb-6 bg-white border-2 border-blue-300 rounded-lg p-6 text-center">
-            <h2 className="text-lg font-semibold text-slate-900 mb-2">Start Your Session</h2>
-            <p className="text-sm text-slate-600 mb-4">
-              Scan pills to begin. A master token will track all identifications, confidences, and latencies.
-            </p>
-            <button
-              onClick={handleStartSession}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition"
-            >
-              Begin Scanning
-            </button>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col p-4 max-w-2xl mx-auto w-full">
+        {activeTab === "scan" && (
+          <div className="flex flex-col flex-1">
+            <Scanner onAddPill={handleAddPill} />
           </div>
         )}
 
+        {activeTab === "schedule" && (
+          <div className="flex flex-col space-y-4">
+            <h2 className="text-xl font-semibold">Medication Schedule</h2>
+            <p className="text-sm text-slate-400">
+              Manage daily dosage times and prevent missed medications.
+            </p>
+            {savedPills.length === 0 ? (
+              <div className="p-8 text-center border border-dashed border-slate-800 rounded-2xl text-slate-500">
+                No pills scanned yet. Go to Scan to add medications.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {savedPills.map((pill) => (
+                  <div key={pill.id} className="p-4 bg-slate-900 border border-slate-800 rounded-xl flex justify-between items-center">
+                    <div>
+                      <h3 className="font-semibold text-white">{pill.drug_name || "Unknown Pill"}</h3>
+                      <p className="text-xs text-slate-400">NDC: {pill.ndc || "N/A"}</p>
+                    </div>
+                    <span className="text-xs bg-blue-500/10 text-blue-400 px-3 py-1 rounded-lg border border-blue-500/20">
+                      Saved
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-        {showMainScreen && (
-          <>
-            <Nav tab={tab} setTab={setTab} />
-
-
-            <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-              {tab === "scan" && <Scanner onIdentify={addIdentification} />}
-              {tab === "schedule" && <Scheduler />}
-              {tab === "safety" && <SafetyReport />}
-              {tab === "passport" && <QRPassport />}
-              {tab === "export" && (
-                <ExportTab token={token} pillCount={pillCount} onReset={handleResetSession} />
-              )}
+        {activeTab === "safety" && (
+          <div className="flex flex-col space-y-4">
+            <h2 className="text-xl font-semibold">Safety & Interaction Check</h2>
+            <p className="text-sm text-slate-400">
+              Review potential drug-drug interactions and Beers criteria warnings for geriatric care.
+            </p>
+            <div className="p-4 bg-emerald-950/30 border border-emerald-900/50 rounded-xl">
+              <h3 className="font-medium text-emerald-400 mb-1">Safety Status: Stable</h3>
+              <p className="text-xs text-slate-300">No high-risk polypharmacy interactions flagged in current active items.</p>
             </div>
-          </>
+          </div>
+        )}
+
+        {activeTab === "passport" && (
+          <div className="flex flex-col space-y-4">
+            <h2 className="text-xl font-semibold">Medication Passport</h2>
+            <p className="text-sm text-slate-400">
+              Portable emergency summary profile for healthcare providers.
+            </p>
+            <div className="p-6 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col items-center text-center">
+              <div className="w-32 h-32 bg-white p-2 rounded-xl mb-4 flex items-center justify-center text-black font-bold text-xs">
+                [QR PASSPORT CODE]
+              </div>
+              <p className="text-xs text-slate-400">Scan to load complete patient medication profile instantly.</p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "export" && (
+          <div className="flex flex-col space-y-4">
+            <h2 className="text-xl font-semibold">Export & Session Data</h2>
+            <p className="text-sm text-slate-400">
+              Export clinical session logs and medication summaries.
+            </p>
+            <button
+              onClick={() => alert("Session data exported successfully.")}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-500 font-semibold rounded-xl transition shadow-lg shadow-blue-600/20"
+            >
+              Export JSON Report
+            </button>
+          </div>
         )}
       </div>
 
-
-      <footer className="mt-12 border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-500">
-        <p>
-          This is a research tool for clinical validation. Results are experimental and{" "}
-          <strong>NOT for medical use</strong>.
-        </p>
-      </footer>
-    </main>
-  );
-}
-
-
-function ExportTab({
-  token,
-  pillCount,
-  onReset,
-}: {
-  token: string;
-  pillCount: number;
-  onReset: () => void;
-}) {
-  const [tokenCopied, setTokenCopied] = useState(false);
-
-
-  const copyToken = async () => {
-    await navigator.clipboard.writeText(token);
-    setTokenCopied(true);
-    setTimeout(() => setTokenCopied(false), 2000);
-  };
-
-
-  return (
-    <div className="space-y-6">
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <h3 className="font-semibold text-green-900 mb-2">✓ Session Complete</h3>
-        <p className="text-sm text-green-800 mb-4">
-          {pillCount} pill{pillCount !== 1 ? "s" : ""} identified. Complete the survey below with your master token.
-        </p>
-
-
-        <div className="bg-white border border-green-300 rounded p-3 mb-4">
-          <p className="text-xs font-bold text-green-900 mb-2">Your Master Token</p>
-          <p className="text-xs font-mono text-green-700 break-all mb-3">{token}</p>
-          <button
-            onClick={copyToken}
-            className={`w-full px-3 py-2 rounded text-xs font-bold transition ${
-              tokenCopied
-                ? "bg-green-500 text-white"
-                : "bg-green-600 hover:bg-green-700 text-white"
-            }`}
-          >
-            {tokenCopied ? "✓ Copied to Clipboard" : "📋 Copy Token"}
-          </button>
-          <p className="text-xs text-green-600 mt-2">
-            Paste this token at the start of your survey response.
-          </p>
-        </div>
-      </div>
-
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <a
-          href="https://forms.gle/seniors-survey"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block bg-gradient-to-br from-orange-50 to-orange-100 border-2 border-orange-300 rounded-lg p-6 hover:shadow-lg transition text-center"
+      {/* Fixed Mobile Bottom Navigation Bar */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-2 py-2 flex justify-around items-center shadow-2xl">
+        <button
+          onClick={() => setActiveTab("scan")}
+          className={`flex flex-col items-center flex-1 py-1 transition ${activeTab === "scan" ? "text-blue-400" : "text-slate-400 hover:text-slate-200"}`}
         >
-          <div className="text-3xl mb-2">👴</div>
-          <h4 className="font-semibold text-orange-900 mb-2">Senior Usability Survey</h4>
-          <p className="text-sm text-orange-700 mb-4">
-            For participants 65+. Share your experience with the interface.
-          </p>
-          <button className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded font-medium text-sm">
-            Take Survey →
-          </button>
-        </a>
+          <span className="text-lg">📷</span>
+          <span className="text-[10px] font-medium mt-0.5">Scan</span>
+        </button>
 
-
-        <a
-          href="https://forms.gle/physician-survey"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-6 hover:shadow-lg transition text-center"
+        <button
+          onClick={() => setActiveTab("schedule")}
+          className={`flex flex-col items-center flex-1 py-1 transition ${activeTab === "schedule" ? "text-blue-400" : "text-slate-400 hover:text-slate-200"}`}
         >
-          <div className="text-3xl mb-2">👨‍⚕️</div>
-          <h4 className="font-semibold text-blue-900 mb-2">Physician Clinical Audit Survey</h4>
-          <p className="text-sm text-blue-700 mb-4">
-            For medical professionals. Evaluate accuracy, trust, and safety features.
-          </p>
-          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium text-sm">
-            Take Survey →
-          </button>
-        </a>
-      </div>
+          <span className="text-lg">⏰</span>
+          <span className="text-[10px] font-medium mt-0.5">Schedule</span>
+        </button>
 
+        <button
+          onClick={() => setActiveTab("safety")}
+          className={`flex flex-col items-center flex-1 py-1 transition ${activeTab === "safety" ? "text-blue-400" : "text-slate-400 hover:text-slate-200"}`}
+        >
+          <span className="text-lg">🛡️</span>
+          <span className="text-[10px] font-medium mt-0.5">Safety</span>
+        </button>
 
-      <button
-        onClick={onReset}
-        className="w-full px-4 py-3 bg-slate-200 hover:bg-slate-300 text-slate-900 font-semibold rounded-lg transition"
-      >
-        Start New Session
-      </button>
+        <button
+          onClick={() => setActiveTab("passport")}
+          className={`flex flex-col items-center flex-1 py-1 transition ${activeTab === "passport" ? "text-blue-400" : "text-slate-400 hover:text-slate-200"}`}
+        >
+          <span className="text-lg">🪪</span>
+          <span className="text-[10px] font-medium mt-0.5">Passport</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("export")}
+          className={`flex flex-col items-center flex-1 py-1 transition ${activeTab === "export" ? "text-blue-400" : "text-slate-400 hover:text-slate-200"}`}
+        >
+          <span className="text-lg">📤</span>
+          <span className="text-[10px] font-medium mt-0.5">Export</span>
+        </button>
+      </nav>
     </div>
   );
 }

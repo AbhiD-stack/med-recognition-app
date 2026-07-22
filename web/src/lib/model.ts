@@ -73,15 +73,11 @@ export function loadModel(onProgress?: (msg: string) => void): Promise<void> {
     const startAll = performance.now();
     
     if (!ort) {
-      onProgress?.("Loading ONNX runtime...");
+      onProgress?.("Initializing ONNX runtime...");
       ort = await import('onnxruntime-web');
       ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/";
-      try {
-        const hw = (navigator as any)?.hardwareConcurrency || 4;
-        ort.env.wasm.numThreads = Math.max(1, Math.floor(hw - 1));
-      } catch (e) {
-        ort.env.wasm.numThreads = 2;
-      }
+      // Force single-threaded execution to prevent hanging/freezing in browser environments
+      ort.env.wasm.numThreads = 1;
     }
 
     onProgress?.("Downloading inference config...");
@@ -118,7 +114,7 @@ export function loadModel(onProgress?: (msg: string) => void): Promise<void> {
     onProgress?.("Loading vision backbone from Hugging Face...");
     const t5 = performance.now();
     try {
-      backboneSession = await ort.InferenceSession.create(`${getBaseUrl()}/backbone.onnx`);
+      backboneSession = await ort.InferenceSession.create(`${getBaseUrl()}/backbone.onnx`, { executionProviders: ['wasm'] });
       loadTimings["backbone_load_ms"] = Math.round(performance.now() - t5);
     } catch (err) {
       console.error("Failed to load backbone:", err);
@@ -128,8 +124,8 @@ export function loadModel(onProgress?: (msg: string) => void): Promise<void> {
 
     onProgress?.("Loading projection heads...");
     const t6 = performance.now();
-    headAugSession = await ort.InferenceSession.create(`${getBaseUrl()}/head_aug.onnx`);
-    headLoraSession = await ort.InferenceSession.create(`${getBaseUrl()}/head_lora.onnx`);
+    headAugSession = await ort.InferenceSession.create(`${getBaseUrl()}/head_aug.onnx`, { executionProviders: ['wasm'] });
+    headLoraSession = await ort.InferenceSession.create(`${getBaseUrl()}/head_lora.onnx`, { executionProviders: ['wasm'] });
     loadTimings["heads_load_ms"] = Math.round(performance.now() - t6);
 
     loadTimings["total_load_ms"] = Math.round(performance.now() - startAll);
@@ -278,7 +274,7 @@ export async function identifyPill(
     const augSims = cosineSimMatrix(augEmb, refBank!.ref_aug_embeddings);
     const loraSims = cosineSimMatrix(loraEmb, refBank!.ref_lora_embeddings);
     const augScores = topkPerClass(augSims, refBank!.ref_label_idx, cfg.num_classes, cfg.best_k);
-    const loraScores = topkPerClass(loraSims, refBank!.ref_lora_embeddings, cfg.num_classes, cfg.best_k);
+    const loraScores = topkPerClass(loraSims, refBank!.ref_label_idx, cfg.num_classes, cfg.best_k);
 
     const alpha = cfg.best_alpha;
     const finalScores = new Float32Array(cfg.num_classes);
