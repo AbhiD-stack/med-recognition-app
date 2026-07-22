@@ -2,15 +2,11 @@
 
 import * as ort from 'onnxruntime-web';
 
-let inferenceSession: ort.InferenceSession | null = null;
-
-export async function getModelSession() {
-  if (inferenceSession) return inferenceSession;
-  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/';
-  return inferenceSession;
+// Use a fully qualified string CDN path for WebAssembly binaries
+if (typeof window !== 'undefined') {
+  ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/";
 }
 
-// Point directly to your Hugging Face public repository raw URLs
 const HF_BASE = "https://huggingface.co/AbhiD123/pill-id-v2/resolve/main";
 
 function getBaseUrl(): string {
