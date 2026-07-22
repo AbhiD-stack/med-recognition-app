@@ -3,12 +3,9 @@
 let ort: typeof import('onnxruntime-web') | null = null;
 
 const HF_BASE = "https://huggingface.co/AbhiD123/pill-id-v2/resolve/main";
-// Point to the local folder in public/model
 const LOCAL_BASE = "/model";
 
-// Helper to check if local files exist, otherwise fallback to HF
 async function fetchWithFallback<T>(filename: string, parser: "json" | "arrayBuffer" | "session", sessionOptions?: any): Promise<T> {
-  // 1. Try local public folder first (super fast)
   try {
     const localRes = await fetch(`${LOCAL_BASE}/${filename}`);
     if (localRes.ok) {
@@ -19,11 +16,8 @@ async function fetchWithFallback<T>(filename: string, parser: "json" | "arrayBuf
         return (await ort.InferenceSession.create(buf, sessionOptions)) as unknown as T;
       }
     }
-  } catch (e) {
-    // Local fetch failed, proceed to fallback
-  }
+  } catch (e) {}
 
-  // 2. Fallback to Hugging Face URL with retry logic
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const response = await fetch(`${HF_BASE}/${filename}`);
@@ -101,54 +95,40 @@ export function loadModel(onProgress?: (msg: string) => void): Promise<void> {
       ort.env.wasm.numThreads = 1;
     }
 
-    onProgress?.("Loading inference config...");
+    onProgress?.("Downloading configs, labels, and embeddings...");
     const t0 = performance.now();
-    config = await fetchWithFallback<InferenceConfig>("inference_config.json", "json");
     
+    // Parallelize metadata and reference file downloads
+    const [cfg, labels, bank, filenames, names] = await Promise.all([
+      fetchWithFallback<InferenceConfig>("inference_config.json", "json"),
+      fetchWithFallback<LabelMap>("labels.json", "json"),
+      fetchWithFallback<ReferenceBank>("reference_embeddings.json", "json"),
+      fetchWithFallback<Record<string, string>>("reference_filenames.json", "json").catch(() => ({})),
+      fetchWithFallback<DrugNameMap>("ndc_names.json", "json").catch(() => ({}))
+    ]);
+
+    config = cfg;
     if (config && (!config.n_tta_views || config.n_tta_views > 1)) {
       config.n_tta_views = 1;
     }
-    loadTimings["inference_config_ms"] = Math.round(performance.now() - t0);
+    labelMap = labels;
+    refBank = bank;
+    refFilenames = filenames;
+    drugNameMap = names;
+    
+    loadTimings["metadata_load_ms"] = Math.round(performance.now() - t0);
 
-    onProgress?.("Loading label map...");
-    const t1 = performance.now();
-    labelMap = await fetchWithFallback<LabelMap>("labels.json", "json");
-    loadTimings["labels_ms"] = Math.round(performance.now() - t1);
-
-    onProgress?.("Loading reference embeddings...");
-    const t3 = performance.now();
-    refBank = await fetchWithFallback<ReferenceBank>("reference_embeddings.json", "json");
-    loadTimings["reference_embeddings_ms"] = Math.round(performance.now() - t3);
-
-    try {
-      refFilenames = await fetchWithFallback<Record<string, string>>("reference_filenames.json", "json");
-    } catch (e) {
-      refFilenames = {};
-    }
-
-    try {
-      drugNameMap = await fetchWithFallback<DrugNameMap>("ndc_names.json", "json");
-    } catch (e) {
-      drugNameMap = {};
-    }
-
-    onProgress?.("Loading vision backbone model...");
+    onProgress?.("Downloading and compiling ONNX model weights...");
     const t5 = performance.now();
-    try {
-      backboneSession = await fetchWithFallback<any>("backbone.onnx", "session", { executionProviders: ['wasm'] });
-      loadTimings["backbone_load_ms"] = Math.round(performance.now() - t5);
-    } catch (err) {
-      console.error("Failed to load backbone:", err);
-      loadTimings["backbone_load_ms"] = -1;
-      throw err;
-    }
 
-    onProgress?.("Loading projection heads...");
-    const t6 = performance.now();
-    headAugSession = await fetchWithFallback<any>("head_aug.onnx", "session", { executionProviders: ['wasm'] });
-    headLoraSession = await fetchWithFallback<any>("head_lora.onnx", "session", { executionProviders: ['wasm'] });
-    loadTimings["heads_load_ms"] = Math.round(performance.now() - t6);
+    // Parallelize large ONNX model session creation
+    [backboneSession, headAugSession, headLoraSession] = await Promise.all([
+      fetchWithFallback<any>("backbone.onnx", "session", { executionProviders: ['wasm'] }),
+      fetchWithFallback<any>("head_aug.onnx", "session", { executionProviders: ['wasm'] }),
+      fetchWithFallback<any>("head_lora.onnx", "session", { executionProviders: ['wasm'] })
+    ]);
 
+    loadTimings["onnx_models_load_ms"] = Math.round(performance.now() - t5);
     loadTimings["total_load_ms"] = Math.round(performance.now() - startAll);
     onProgress?.("Model ready.");
   })();
