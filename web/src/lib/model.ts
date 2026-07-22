@@ -3,8 +3,18 @@
 
 import * as ort from 'onnxruntime-web';
 
-// Point WASM files to a reliable CDN to avoid missing binary errors on deployment
-ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@${ort.version}/dist/';
+let inferenceSession: ort.InferenceSession | null = null;
+
+export async function getModelSession() {
+  if (inferenceSession) return inferenceSession;
+
+  // Configure WASM paths safely for client browser runtime
+  ort.env.wasm.wasmPaths = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ort.version}/dist/`;
+
+  // Initialize your ONNX model session here
+  // inferenceSession = await ort.InferenceSession.create('/model.onnx');
+  return inferenceSession;
+}
 
 const LOCAL_BASE = "/model";
 export const MODEL_BASE = LOCAL_BASE;
