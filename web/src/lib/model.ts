@@ -1,11 +1,6 @@
 "use client";
 
-import * as ort from 'onnxruntime-web';
-
-// Use a fully qualified string CDN path for WebAssembly binaries
-if (typeof window !== 'undefined') {
-  ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/";
-}
+let ort: typeof import('onnxruntime-web') | null = null;
 
 const HF_BASE = "https://huggingface.co/AbhiD123/pill-id-v2/resolve/main";
 
@@ -42,9 +37,9 @@ export type PillMatch = {
   score: number;
 };
 
-let backboneSession: ort.InferenceSession | null = null;
-let headAugSession: ort.InferenceSession | null = null;
-let headLoraSession: ort.InferenceSession | null = null;
+let backboneSession: any = null;
+let headAugSession: any = null;
+let headLoraSession: any = null;
 let config: InferenceConfig | null = null;
 let refBank: ReferenceBank | null = null;
 let labelMap: LabelMap | null = null;
@@ -76,11 +71,17 @@ export function loadModel(onProgress?: (msg: string) => void): Promise<void> {
 
   loadingPromise = (async () => {
     const startAll = performance.now();
-    try {
-      const hw = (navigator as any)?.hardwareConcurrency || 4;
-      ort.env.wasm.numThreads = Math.max(1, Math.floor(hw - 1));
-    } catch (e) {
-      ort.env.wasm.numThreads = 2;
+    
+    if (!ort) {
+      onProgress?.("Loading ONNX runtime...");
+      ort = await import('onnxruntime-web');
+      ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/";
+      try {
+        const hw = (navigator as any)?.hardwareConcurrency || 4;
+        ort.env.wasm.numThreads = Math.max(1, Math.floor(hw - 1));
+      } catch (e) {
+        ort.env.wasm.numThreads = 2;
+      }
     }
 
     onProgress?.("Downloading inference config...");
@@ -231,7 +232,7 @@ export async function identifyPill(
   srcH: number,
   topN = 5
 ): Promise<PillMatch[]> {
-  if (!isModelReady()) throw new Error("Model not loaded yet — call loadModel() first.");
+  if (!isModelReady() || !ort) throw new Error("Model not loaded yet — call loadModel() first.");
   const cfg = config!;
 
   let backboneAvg: Float32Array | null = null;
@@ -240,7 +241,7 @@ export async function identifyPill(
     backboneAvg = null;
     for (let v = 0; v < cfg.n_tta_views; v++) {
       const chw = drawTTAView(imageSource, srcW, srcH, v, size);
-      const tensor = new ort.Tensor("float32", chw, [1, 3, size, size]);
+      const tensor = new ort!.Tensor("float32", chw, [1, 3, size, size]);
       const result = await backboneSession!.run({ pixel_values: tensor });
       const emb = result.embedding.data as Float32Array;
       if (!backboneAvg) backboneAvg = new Float32Array(emb.length);
@@ -268,7 +269,7 @@ export async function identifyPill(
   }
 
   try {
-    const backboneTensor = new ort.Tensor("float32", backboneAvg!, [1, backboneAvg!.length]);
+    const backboneTensor = new ort!.Tensor("float32", backboneAvg!, [1, backboneAvg!.length]);
     const augOut = await headAugSession!.run({ backbone_embedding: backboneTensor });
     const loraOut = await headLoraSession!.run({ backbone_embedding: backboneTensor });
     const augEmb = augOut.projected_embedding.data as Float32Array;
@@ -277,7 +278,7 @@ export async function identifyPill(
     const augSims = cosineSimMatrix(augEmb, refBank!.ref_aug_embeddings);
     const loraSims = cosineSimMatrix(loraEmb, refBank!.ref_lora_embeddings);
     const augScores = topkPerClass(augSims, refBank!.ref_label_idx, cfg.num_classes, cfg.best_k);
-    const loraScores = topkPerClass(loraSims, refBank!.ref_label_idx, cfg.num_classes, cfg.best_k);
+    const loraScores = topkPerClass(loraSims, refBank!.ref_lora_embeddings, cfg.num_classes, cfg.best_k);
 
     const alpha = cfg.best_alpha;
     const finalScores = new Float32Array(cfg.num_classes);
