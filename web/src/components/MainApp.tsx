@@ -59,7 +59,7 @@ export default function MainApp({ onResetSession }: MainAppProps) {
       <div className="flex-1 flex flex-col p-6 max-w-3xl mx-auto w-full">
         {activeTab === "scan" && (
           <div className="flex flex-col flex-1">
-            <Scanner onAddPill={handleAddPill} />
+             <Scanner onIdentify={(drugs, confs, rot, adj, lat) => handleAddPill({ drugs, confs, rot, adj, lat })} />
           </div>
         )}
 
