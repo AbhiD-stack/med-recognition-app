@@ -272,10 +272,10 @@ export async function identifyPill(
       const ndcFromLabel = (labelStr.match(/\d{4,5}-\d{3,4}-\d{1,2}/) || labelStr.match(/\d{4,5}-\d{3,4}/))?.[0];
       const ndcFromSplit = labelStr.split("_")[0];
       const ndc = meta.ndc || ndcFromLabel || (ndcFromSplit && /\d/.test(ndcFromSplit) ? ndcFromSplit : undefined);
-      const drug_name = meta.drug_name || (ndc && drugNameMap?.[ndc]?.name) || labelStr.replace(/_/g, " ");
-
+      const drug_name = meta.drug_name || labelStr.replace(/_/g, " ");
       return { label_idx, score, label_str: meta.label_str, ndc, drug_name } as PillMatch;
     });
+
   } catch (err) {
     throw new Error("Head/projection inference failed: " + (err instanceof Error ? err.message : String(err)));
   }

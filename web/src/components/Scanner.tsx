@@ -207,7 +207,7 @@ function ResultsView({
           <div className="text-center bg-indigo-50/55 p-3 rounded-xl border border-indigo-200">
             <p className="text-xs font-bold text-indigo-700 mb-2">Top Match Reference</p>
             <img
-              src={`data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='%23cbd5e1'%3E%3Crect width='18' height='18' x='3' y='3' rx='2'/%3E%3C/svg%3E`}
+              src={getReferenceUrl(matches[0].label_idx, matches[0].label_str)}
               alt={matches[0].drug_name || matches[0].label_str}
               className="w-32 h-32 object-contain mx-auto rounded-lg border border-indigo-200 bg-white shadow-inner p-1"
             />
@@ -293,7 +293,7 @@ function ResultsView({
               )}
               <div className="flex items-center gap-3">
                 <img
-                  src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='%23cbd5e1'%3E%3Crect width='18' height='18' x='3' y='3' rx='2' ry='2'/%3E%3Ccircle cx='9' cy='9' r='2'/%3E%3Cpath d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/%3E%3C/svg%3E"
+                  src={getReferenceUrl(matches[0].label_idx, matches[0].label_str)}
                   alt={m.drug_name || m.label_str}
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='none' stroke='%23cbd5e1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='18' x='3' y='3' rx='2' ry='2'/%3E%3Ccircle cx='9' cy='9' r='2'/%3E%3Cpath d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/%3E%3C/svg%3E";
