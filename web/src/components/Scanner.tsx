@@ -22,14 +22,7 @@ export default function Scanner() {
 
   useEffect(() => {
     // Load NDC names and reference filenames (optional)
-    Promise.all([
-      fetch("/model/ndc_names.json").then((r) => r.json()).catch(() => ({})),
-      fetch("/model/reference_filenames.json").then((r) => r.json()).catch(() => ({})),
-    ]).then(([ndc, ref]) => {
-      setNdcNames(ndc || {});
-      setRefFilenames(ref || {});
-    });
-
+    
     // Load model
     loadModel(setStatusMsg)
       .then(() => {
@@ -214,7 +207,7 @@ function ResultsView({
           <div className="text-center bg-indigo-50/55 p-3 rounded-xl border border-indigo-200">
             <p className="text-xs font-bold text-indigo-700 mb-2">Top Match Reference</p>
             <img
-              src={getReferenceUrl(matches[0].label_idx, matches[0].label_str)}
+              src={`data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='%23cbd5e1'%3E%3Crect width='18' height='18' x='3' y='3' rx='2'/%3E%3C/svg%3E`}
               alt={matches[0].drug_name || matches[0].label_str}
               className="w-32 h-32 object-contain mx-auto rounded-lg border border-indigo-200 bg-white shadow-inner p-1"
             />
