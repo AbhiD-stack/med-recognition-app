@@ -293,7 +293,7 @@ function ResultsView({
               )}
               <div className="flex items-center gap-3">
                 <img
-                  src={getReferenceUrl(m.label_idx, m.label_str)}
+                  src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='%23cbd5e1'%3E%3Crect width='18' height='18' x='3' y='3' rx='2' ry='2'/%3E%3Ccircle cx='9' cy='9' r='2'/%3E%3Cpath d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/%3E%3C/svg%3E"
                   alt={m.drug_name || m.label_str}
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='none' stroke='%23cbd5e1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='18' x='3' y='3' rx='2' ry='2'/%3E%3Ccircle cx='9' cy='9' r='2'/%3E%3Cpath d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/%3E%3C/svg%3E";
@@ -307,12 +307,7 @@ function ResultsView({
                 </div>
               </div>
 
-              {/* Attributes */}
-              <div className="mt-3 pt-2 border-t border-slate-100 flex flex-wrap gap-1 text-[11px] text-slate-600">
-                {m.color && <span className="bg-slate-100 px-2 py-0.5 rounded font-medium">Color: {m.color}</span>}
-                {m.imprint && <span className="bg-slate-100 px-2 py-0.5 rounded font-medium">Imprint: {m.imprint}</span>}
-                {m.shape && <span className="bg-slate-100 px-2 py-0.5 rounded font-medium">Shape: {m.shape}</span>}
-              </div>
+              
 
               <div className="mt-3 flex items-center justify-between gap-2">
                 <div className="flex-1 text-center bg-indigo-50 group-hover:bg-indigo-600 group-hover:text-white text-indigo-700 py-1.5 rounded-xl font-bold text-xs transition">
