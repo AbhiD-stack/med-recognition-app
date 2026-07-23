@@ -21,6 +21,14 @@ export default function Scanner() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    // Load NDC names and reference filenames
+    Promise.all([
+      fetch("/model/ndc_names.json").then((r) => r.json()),
+      fetch("/model/reference_filenames.json").then((r) => r.json()),
+    ]).then(([ndc, ref]) => {
+      setNdcNames(ndc);
+      setRefFilenames(ref);
+    });
     loadModel(setStatusMsg)
       .then(() => {
         setStage("capture");
