@@ -2,7 +2,7 @@
 
 let ort: typeof import('onnxruntime-web') | null = null;
 
-const HF_BASE = "https://huggingface.co/AbhiD123/pill-id-v2/resolve/main";
+const HF_BASE = "/model";
 
 async function fetchJson<T>(url: string): Promise<T> {
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -71,7 +71,7 @@ export function loadModel(onProgress?: (msg: string) => void): Promise<void> {
     if (!ort) {
       onProgress?.("Initializing ONNX runtime...");
       ort = await import('onnxruntime-web');
-      ort.env.wasm.wasmPaths = "/onnxruntime-web/";
+      ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/";
       ort.env.wasm.numThreads = 1;
     }
 
