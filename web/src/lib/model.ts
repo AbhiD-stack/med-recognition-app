@@ -2,8 +2,7 @@
 
 let ort: typeof import('onnxruntime-web') | null = null;
 
-const HF_BASE = "/model";
-
+const HF_BASE = "https://huggingface.co/AbhiD123/pill-id-v2/resolve/main";
 async function fetchJson<T>(url: string): Promise<T> {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
