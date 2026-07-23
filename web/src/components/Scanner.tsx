@@ -21,9 +21,14 @@ export default function Scanner() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    loadModel(setStatusMsg).then(() => {
-      setStage("capture");
-    });
+    loadModel(setStatusMsg)
+      .then(() => {
+        setStage("capture");
+      })
+      .catch((err) => {
+        setStatusMsg(`Load failed: ${err.message}`);
+        console.error("Model load error:", err);
+      });
   }, []);
 
   const handleImageReady = async (canvas: HTMLCanvasElement, width: number, height: number) => {

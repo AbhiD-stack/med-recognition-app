@@ -71,7 +71,7 @@ export function loadModel(onProgress?: (msg: string) => void): Promise<void> {
     if (!ort) {
       onProgress?.("Initializing ONNX runtime...");
       ort = await import('onnxruntime-web');
-      ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/";
+      ort.env.wasm.wasmPaths = "/onnxruntime-web/";
       ort.env.wasm.numThreads = 1;
     }
 
